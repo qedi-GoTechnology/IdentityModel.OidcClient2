@@ -168,7 +168,7 @@ namespace ConsoleClientWithBrowser
             {
                 ctx.Response.StatusCode = 200;
                 ctx.Response.ContentType = "text/html";
-                ctx.Response.WriteAsync("<h1>You can now return to the application.</h1>");
+                ctx.Response.WriteAsync("<h3>Todo: Close this tab after authentication</h3>");
                 ctx.Response.Body.Flush();
 
                 _source.TrySetResult(value);
@@ -177,7 +177,7 @@ namespace ConsoleClientWithBrowser
             {
                 ctx.Response.StatusCode = 400;
                 ctx.Response.ContentType = "text/html";
-                ctx.Response.WriteAsync("<h1>Invalid request.</h1>");
+                ctx.Response.WriteAsync("<h3>Invalid request.</h3>");
                 ctx.Response.Body.Flush();
             }
         }
