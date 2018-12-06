@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using IdentityModel.Client;
 using Newtonsoft.Json;
 
 namespace ConsoleClientWithBrowser
@@ -18,7 +19,7 @@ namespace ConsoleClientWithBrowser
 
         private const string LEVEL_HEADER = "X-GoTechnology-Level";
         static OidcClient _oidcClient;
-        static HttpClient _apiClient = new HttpClient();
+        static readonly HttpClient _apiClient = new HttpClient();
 
         private static Guid _selectedLevelEId = Guid.Empty;
 
@@ -50,7 +51,8 @@ namespace ConsoleClientWithBrowser
                 RedirectUri = redirectUri,
                 Scope = "openid profile email extended_profile hub2_api offline_access",
                 FilterClaims = false,
-                Browser = browser
+                Browser = browser,
+                PostLogoutRedirectUri = redirectUri
             };
 
             var serilog = new LoggerConfiguration()
@@ -103,11 +105,12 @@ namespace ConsoleClientWithBrowser
 
         private static async Task NextSteps(LoginResult result)
         {
+            var currentIdToken = result.IdentityToken;
             var currentAccessToken = result.AccessToken;
             var currentRefreshToken = result.RefreshToken;
 
             var menu = "  x...exit  l...get levels  d...query disciplines  ";
-            if (currentRefreshToken != null) menu += "r...refresh token   ";
+            if (currentRefreshToken != null) menu += "r...refresh token  o...sign out ";
 
             while (true)
             {
@@ -135,6 +138,31 @@ namespace ConsoleClientWithBrowser
                         Console.WriteLine($"access token:   {currentAccessToken}");
                         Console.WriteLine($"refresh token:  {currentRefreshToken ?? "none"}");
                     }
+                }
+                if (key.Key == ConsoleKey.O)
+                {
+                    // Get the URI for the Revocation Endpoint
+                    var disco = await _apiClient.GetDiscoveryDocumentAsync(_authority);
+                    if (disco.IsError)
+                    {
+                        Console.WriteLine("Failed to access Discovery Document");
+                        break;
+                    }
+
+                    // Revoke the Refresh Token
+                    var revokeResult = await _apiClient.RevokeTokenAsync(new TokenRevocationRequest
+                    {
+                        Address = disco.RevocationEndpoint,
+                        ClientId = _clientId,
+                        Token = currentRefreshToken,
+                        TokenTypeHint = "refresh_token"
+                    });
+
+                    // Sign out from the ID Server
+                    await _oidcClient.LogoutAsync(new LogoutRequest
+                    {
+                        IdTokenHint = currentIdToken
+                    });
                 }
             }
         }
